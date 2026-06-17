@@ -49,8 +49,8 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
   const authenticate = async () => {
     setAuthErr('')
     try {
-      // Encrypt payload — secret never travels in plaintext
-      const encrypted = await encryptPayload({ secret })
+      // Encrypt with RSA-OAEP + AES-256-GCM — no key stored in frontend
+      const encrypted = await encryptPayload({ secret }, API)
       const r = await apiFetch(`${API}/config/auth`, {
         method :'POST',
         headers:{'Content-Type':'application/json'},

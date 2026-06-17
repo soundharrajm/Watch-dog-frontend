@@ -1,50 +1,87 @@
 /**
- * crypto.js
- * AES-GCM encryption for sensitive payloads.
- * Uses the browser's native Web Crypto API — no external library needed.
+ * crypto.js — RSA-OAEP + AES-256-GCM hybrid encryption
+ * ======================================================
+ * No hardcoded keys. Flow:
+ *   1. Fetch RSA public key from backend
+ *   2. Generate random AES-256 key in browser
+ *   3. Encrypt payload with AES-256-GCM
+ *   4. Encrypt AES key with RSA public key
+ *   5. Send both — backend decrypts with private key (never exposed)
  *
- * The APP_ENCRYPT_KEY is a shared secret baked into the build.
- * It's not a password — it protects the payload in transit from
- * network logs, proxies, and interceptors.
+ * Uses browser Web Crypto API — no external library.
  */
 
-const APP_ENCRYPT_KEY = import.meta.env.VITE_ENCRYPT_KEY || 'watchdog-aes-key-32chars-minimum!'
+let _cachedPublicKey = null   // cache per session
 
-// Derive a CryptoKey from the string key
-async function getKey() {
-  const enc     = new TextEncoder()
-  const keyMat  = await crypto.subtle.importKey('raw', enc.encode(APP_ENCRYPT_KEY.slice(0,32).padEnd(32,'0')), 'PBKDF2', false, ['deriveKey'])
-  return crypto.subtle.deriveKey(
-    { name:'PBKDF2', salt: enc.encode('watchdog-salt'), iterations: 100000, hash:'SHA-256' },
-    keyMat,
-    { name:'AES-GCM', length:256 },
+/**
+ * Fetch and import RSA public key from backend.
+ */
+async function getPublicKey(apiUrl) {
+  if (_cachedPublicKey) return _cachedPublicKey
+  const r    = await fetch(`${apiUrl}/config/public-key`)
+  const data = await r.json()
+  const pem  = data.public_key
+
+  // Strip PEM headers and decode base64
+  const b64 = pem
+    .replace('-----BEGIN PUBLIC KEY-----', '')
+    .replace('-----END PUBLIC KEY-----', '')
+    .replace(/\s/g, '')
+  const der = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+
+  _cachedPublicKey = await crypto.subtle.importKey(
+    'spki', der.buffer,
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
     false,
-    ['encrypt','decrypt']
+    ['encrypt']
   )
+  return _cachedPublicKey
 }
 
 /**
- * Encrypt a string payload.
- * Returns base64-encoded string: iv(12 bytes) + ciphertext
+ * Encrypt a payload object using hybrid RSA-OAEP + AES-256-GCM.
+ * Returns { rsa: <base64>, aes: <base64> }
  */
-export async function encrypt(plaintext) {
-  const key    = await getKey()
-  const iv     = crypto.getRandomValues(new Uint8Array(12))
-  const enc    = new TextEncoder()
-  const cipher = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, enc.encode(plaintext))
-  // Combine iv + cipher into one base64 blob
-  const combined = new Uint8Array(iv.byteLength + cipher.byteLength)
-  combined.set(iv, 0)
-  combined.set(new Uint8Array(cipher), iv.byteLength)
-  return btoa(String.fromCharCode(...combined))
+export async function encryptPayload(obj, apiUrl) {
+  const publicKey = await getPublicKey(apiUrl)
+
+  // 1 — Generate random AES-256 key
+  const aesKey = await crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,   // extractable so we can export it
+    ['encrypt']
+  )
+
+  // 2 — Encrypt payload with AES-256-GCM
+  const iv        = crypto.getRandomValues(new Uint8Array(12))
+  const plaintext = new TextEncoder().encode(JSON.stringify(obj))
+  const aesCipher = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, aesKey, plaintext)
+
+  // Combine iv + ciphertext
+  const aesBytes = new Uint8Array(12 + aesCipher.byteLength)
+  aesBytes.set(iv, 0)
+  aesBytes.set(new Uint8Array(aesCipher), 12)
+
+  // 3 — Export raw AES key bytes
+  const rawAesKey = await crypto.subtle.exportKey('raw', aesKey)
+
+  // 4 — Encrypt AES key with RSA public key (RSA-OAEP)
+  const rsaCipher = await crypto.subtle.encrypt(
+    { name: 'RSA-OAEP' },
+    publicKey,
+    rawAesKey
+  )
+
+  // 5 — Base64 encode both
+  const toB64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)))
+
+  return {
+    rsa: toB64(rsaCipher),   // RSA-encrypted AES key
+    aes: toB64(aesBytes),    // AES-encrypted payload
+  }
 }
 
-/**
- * Encrypt a JSON payload object — returns { _enc: "base64..." }
- * Backend receives this, decrypts, and gets the original object back.
- */
-export async function encryptPayload(obj) {
-  const json      = JSON.stringify(obj)
-  const encrypted = await encrypt(json)
-  return { _enc: encrypted }
+/** Clear cached public key (call if backend restarts) */
+export function clearKeyCache() {
+  _cachedPublicKey = null
 }
