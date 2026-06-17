@@ -1,24 +1,26 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import AlertFeed    from './components/AlertFeed.jsx'
-import EventStream  from './components/EventStream.jsx'
-import GcpUpload    from './components/GcpUpload.jsx'
-import SimBar       from './components/SimBar.jsx'
-import StatCards    from './components/StatCards.jsx'
-import TopBar       from './components/TopBar.jsx'
-import Settings     from './components/Settings.jsx'
+import AlertFeed   from './components/AlertFeed.jsx'
+import EventStream from './components/EventStream.jsx'
+import GcpUpload   from './components/GcpUpload.jsx'
+import SimBar      from './components/SimBar.jsx'
+import StatCards   from './components/StatCards.jsx'
+import TopBar      from './components/TopBar.jsx'
+import Settings    from './components/Settings.jsx'
 
 const SAVED_URL = localStorage.getItem('wd_backend_url')
 const API_INIT  = SAVED_URL || import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
+const TABS = ['Alerts','Stream events','Log upload']
+
 export default function App() {
-  const [apiUrl,     setApiUrl]     = useState(API_INIT)
+  const [apiUrl,       setApiUrl]       = useState(API_INIT)
   const [showSettings, setShowSettings] = useState(false)
-  const [summary,  setSummary]  = useState(null)
-  const [alerts,   setAlerts]   = useState([])
-  const [events,   setEvents]   = useState([])
-  const [tab,      setTab]      = useState('alerts')
-  const [filter,   setFilter]   = useState('all')
-  const [liveAlerts, setLiveAlerts] = useState([])
+  const [summary,      setSummary]      = useState(null)
+  const [alerts,       setAlerts]       = useState([])
+  const [events,       setEvents]       = useState([])
+  const [tab,          setTab]          = useState(0)
+  const [filter,       setFilter]       = useState('all')
+  const [liveAlerts,   setLiveAlerts]   = useState([])
   const wsRef = useRef(null)
 
   const API = apiUrl
@@ -31,48 +33,35 @@ export default function App() {
         fetch(`${API}/alerts/`).then(r => r.json()),
         fetch(`${API}/streams/?limit=80`).then(r => r.json()),
       ])
-      setSummary(s)
-      setAlerts(a.alerts || [])
-      setEvents(e.events || [])
+      setSummary(s); setAlerts(a.alerts||[]); setEvents(e.events||[])
     } catch {}
-  }, [])
+  }, [API])
 
-  // Initial load + polling fallback every 10s
   useEffect(() => { refresh() }, [])
-  useEffect(() => {
-    const t = setInterval(refresh, 10000)
-    return () => clearInterval(t)
-  }, [refresh])
+  useEffect(() => { const t = setInterval(refresh, 10000); return () => clearInterval(t) }, [refresh])
 
-  // WebSocket — live alert push
   useEffect(() => {
     const connect = () => {
       try {
-        const ws = new WebSocket(WS)
-        wsRef.current = ws
+        const ws = new WebSocket(WS); wsRef.current = ws
         ws.onmessage = (e) => {
           try {
             const alert = JSON.parse(e.data)
-            setLiveAlerts(prev => [alert, ...prev].slice(0, 5))
+            setLiveAlerts(prev => [alert, ...prev].slice(0,5))
             setAlerts(prev => [alert, ...prev.filter(a => a.id !== alert.id)])
-            setSummary(prev => prev ? {
-              ...prev,
-              total_alerts    : (prev.total_alerts || 0) + 1,
-              [`${alert.severity}_alerts`]: ((prev[`${alert.severity}_alerts`]) || 0) + 1,
-            } : prev)
           } catch {}
         }
-        ws.onclose = () => { setTimeout(connect, 3000) }
-        ws.onerror = () => { ws.close() }
+        ws.onclose = () => setTimeout(connect, 3000)
+        ws.onerror = () => ws.close()
       } catch {}
     }
     connect()
-    return () => { wsRef.current?.close() }
-  }, [])
+    return () => wsRef.current?.close()
+  }, [WS])
 
   const resolveAlert = async (id) => {
-    await fetch(`${API}/alerts/${id}/resolve`, { method: 'POST' })
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, resolved: true } : a))
+    await fetch(`${API}/alerts/${id}/resolve`, { method:'POST' })
+    setAlerts(prev => prev.map(a => a.id === id ? { ...a, resolved:true } : a))
   }
 
   const threat = !summary ? 'UNKNOWN'
@@ -81,66 +70,47 @@ export default function App() {
     : summary.total_alerts    > 0 ? 'MEDIUM' : 'CLEAR'
 
   const filtered = alerts.filter(a => {
-    if (filter === 'all')        return true
-    if (filter === 'unresolved') return !a.resolved
+    if (filter==='all')        return true
+    if (filter==='unresolved') return !a.resolved
     return a.severity === filter
   })
 
   return (
-    <div style={{ minHeight:'100vh', background:'#080810', color:'#e8e8f0', fontFamily:"'Inter','Segoe UI',sans-serif", paddingBottom:60 }}>
+    <div className="min-h-screen bg-base">
 
       <TopBar threat={threat} liveAlerts={liveAlerts} apiUrl={API} onOpenSettings={() => setShowSettings(true)} />
 
-      <div style={{ maxWidth:1200, margin:'0 auto', padding:'20px 16px' }}>
-
+      <main className="max-w-screen-2xl mx-auto px-4 py-5">
         <StatCards summary={summary} />
 
-        <div style={{ margin:'14px 0', padding:'10px 14px', background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:10 }}>
+        {/* Sim bar */}
+        <div className="card p-3 mb-4">
           <SimBar apiUrl={API} onDone={refresh} />
         </div>
 
-        {/* Tabs */}
-        <div style={{ display:'flex', gap:8, marginBottom:14 }}>
-          {[
-            ['alerts', `Alerts (${alerts.length})`],
-            ['events', `Stream events (${events.length})`],
-            ['upload', 'Log upload'],
-          ].map(([key, label]) => (
-            <button key={key} onClick={() => setTab(key)} style={{
-              padding:'6px 16px', borderRadius:8, fontSize:12, fontWeight:600,
-              cursor:'pointer', fontFamily:'inherit',
-              border:tab===key?'1px solid #7c3aed':'1px solid rgba(255,255,255,0.08)',
-              background:tab===key?'rgba(124,58,237,0.2)':'rgba(255,255,255,0.03)',
-              color:tab===key?'#a78bfa':'#555',
-            }}>{label}</button>
-          ))}
+        {/* Main panel */}
+        <div className="card overflow-hidden">
+          {/* Tab headers */}
+          <div className="flex border-b border-white/[0.07] px-4">
+            {TABS.map((t, i) => (
+              <button key={t} onClick={() => setTab(i)}
+                className={`px-4 py-3.5 text-xs font-semibold transition-all border-b-2 -mb-px mr-1
+                  ${tab===i ? 'border-violet-500 text-violet-300' : 'border-transparent text-slate-500 hover:text-slate-300'}`}>
+                {t}{i===0 ? ` (${alerts.length})` : i===1 ? ` (${events.length})` : ''}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-4">
+            {tab===0 && <AlertFeed alerts={filtered} filter={filter} onFilter={setFilter} onResolve={resolveAlert} onClear={async () => { await fetch(`${API}/alerts/clear`,{method:'DELETE'}); setAlerts([]); refresh() }} />}
+            {tab===1 && <EventStream events={events} />}
+            {tab===2 && <GcpUpload apiUrl={API} onDone={refresh} />}
+          </div>
         </div>
-
-        {tab === 'alerts' && (
-          <AlertFeed
-            alerts={filtered}
-            filter={filter}
-            onFilter={setFilter}
-            onResolve={resolveAlert}
-            onClear={async () => {
-              await fetch(`${API}/alerts/clear`, { method:'DELETE' })
-              setAlerts([])
-              refresh()
-            }}
-          />
-        )}
-
-        {tab === 'events' && <EventStream events={events} />}
-
-        {tab === 'upload' && <GcpUpload apiUrl={API} onDone={refresh} />}
-      </div>
+      </main>
 
       {showSettings && (
-        <Settings
-          apiUrl={API}
-          onClose={() => setShowSettings(false)}
-          onUrlSaved={(url) => { setApiUrl(url); setShowSettings(false) }}
-        />
+        <Settings apiUrl={API} onClose={() => setShowSettings(false)} onUrlSaved={url => { setApiUrl(url); setShowSettings(false) }} />
       )}
     </div>
   )
