@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { apiFetch } from '../api.js'
 
 const inp  = "inp mb-3"
 const label = "block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5"
@@ -44,18 +45,18 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
   const authenticate = async () => {
     setAuthErr('')
     try {
-      const r = await fetch(`${API}/config/auth`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ secret }) })
+      const r = await apiFetch(`${API}/config/auth`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ secret }) })
       if (!r.ok) { setAuthErr('Invalid secret'); return }
       localStorage.setItem('wd_secret', secret)
       setAuthed(true)
-      const c = await fetch(`${API}/config/?secret=${secret}`).then(r => r.json())
+      const c = await apiFetch(`${API}/config/?secret=${secret}`).then(r => r.json())
       setCfg(c)
     } catch { setAuthErr('Cannot reach backend') }
   }
 
   const testBackend = async () => {
     setTesting(true); setTestOk(null)
-    try { const r = await fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(5000) }); setTestOk(r.ok) }
+    try { const r = await apiFetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(5000) }); setTestOk(r.ok) }
     catch { setTestOk(false) } finally { setTesting(false) }
   }
 
@@ -63,13 +64,13 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
 
   const saveCloud = async (p) => {
     markSaving(p)
-    const r = await fetch(`${API}/config/cloud?secret=${secret}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ provider:p, config: cfg.clouds[p] }) })
+    const r = await apiFetch(`${API}/config/cloud?secret=${secret}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ provider:p, config: cfg.clouds[p] }) })
     r.ok ? markSaved(p) : markSaving(p, false)
   }
 
   const saveDet = async () => {
     markSaving('det')
-    const r = await fetch(`${API}/config/detection?secret=${secret}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg.detection) })
+    const r = await apiFetch(`${API}/config/detection?secret=${secret}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg.detection) })
     r.ok ? markSaved('det') : markSaving('det', false)
   }
 

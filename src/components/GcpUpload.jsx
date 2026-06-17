@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { apiFetch } from '../api.js'
 
 export default function GcpUpload({ apiUrl, onDone }) {
   const [dragging,  setDragging]  = useState(false)
@@ -10,7 +11,7 @@ export default function GcpUpload({ apiUrl, onDone }) {
     setUploading(true); setResult(null)
     const fd = new FormData(); fd.append('file', file)
     try {
-      const r = await fetch(`${apiUrl}/ingest/upload`, { method:'POST', body:fd })
+      const r = await apiFetch(`${apiUrl}/ingest/upload`, { method:'POST', body:fd })
       setResult(await r.json()); onDone()
     } catch(e) { setResult({ error: e.message }) }
     finally { setUploading(false) }

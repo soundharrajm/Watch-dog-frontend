@@ -8,7 +8,7 @@ const THREAT = {
   UNKNOWN  : { dot:'bg-slate-500',                    text:'text-slate-400',   ring:'border-slate-500/30 bg-slate-500/10'   },
 }
 
-export default function TopBar({ threat, liveAlerts, apiUrl, onOpenSettings }) {
+export default function TopBar({ threat, liveAlerts, apiUrl, backendOk, onOpenSettings, onRetry }) {
   const [showLive, setShowLive] = useState(false)
   const t = THREAT[threat] || THREAT.UNKNOWN
 
@@ -53,8 +53,16 @@ export default function TopBar({ threat, liveAlerts, apiUrl, onOpenSettings }) {
           Threat: {threat}
         </div>
 
-        {/* URL */}
-        <span className="hidden md:block text-[10px] text-slate-600 font-mono">{apiUrl.replace(/https?:\/\//, '')}</span>
+        {/* Backend status */}
+        <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold
+          ${backendOk === true  ? 'border-emerald-500/25 bg-emerald-500/5 text-emerald-400' :
+            backendOk === false ? 'border-red-500/25    bg-red-500/5    text-red-400 cursor-pointer' :
+                                  'border-white/[0.08]  bg-white/[0.04] text-slate-500'}`}
+          onClick={backendOk === false ? onRetry : undefined}
+          title={backendOk === false ? 'Backend unreachable — click to retry' : ''}>
+          <span className={`w-1.5 h-1.5 rounded-full ${backendOk === true ? 'bg-emerald-400' : backendOk === false ? 'bg-red-400 animate-pulse-dot' : 'bg-slate-600'}`} />
+          {backendOk === true ? 'Connected' : backendOk === false ? 'Disconnected ↺' : 'Connecting…'}
+        </div>
 
         {/* Settings */}
         <button onClick={onOpenSettings} className="btn border-white/[0.1] text-slate-400 hover:text-slate-200 hover:border-white/20">

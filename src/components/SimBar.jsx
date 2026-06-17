@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { apiFetch } from '../api.js'
 
 const SCENARIOS = [
   { label:'Normal',         ep:'normal',           cls:'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10' },
@@ -15,7 +16,7 @@ export default function SimBar({ apiUrl, onDone }) {
 
   const run = async (ep, label) => {
     setBusy(label)
-    try { await fetch(`${apiUrl}/simulate/${ep}`, { method:'POST' }); onDone() }
+    try { await apiFetch(`${apiUrl}/simulate/${ep}`, { method:'POST' }); onDone() }
     finally { setBusy(null) }
   }
 

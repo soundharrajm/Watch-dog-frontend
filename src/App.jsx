@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { apiFetch } from './api.js'
 import AlertFeed   from './components/AlertFeed.jsx'
 import EventStream from './components/EventStream.jsx'
 import GcpUpload   from './components/GcpUpload.jsx'
@@ -26,19 +27,29 @@ export default function App() {
   const API = apiUrl
   const WS  = apiUrl.replace(/^http/, 'ws') + '/ws/alerts'
 
+  const [backendOk, setBackendOk] = useState(null)
+
   const refresh = useCallback(async () => {
     try {
       const [s, a, e] = await Promise.all([
-        fetch(`${API}/streams/summary`).then(r => r.json()),
-        fetch(`${API}/alerts/`).then(r => r.json()),
-        fetch(`${API}/streams/?limit=80`).then(r => r.json()),
+        apiFetch(`${API}/streams/summary`).then(r => r.json()),
+        apiFetch(`${API}/alerts/`).then(r => r.json()),
+        apiFetch(`${API}/streams/?limit=80`).then(r => r.json()),
       ])
+      setBackendOk(true)
       setSummary(s); setAlerts(a.alerts||[]); setEvents(e.events||[])
-    } catch {}
+    } catch {
+      setBackendOk(false)
+    }
   }, [API])
 
   useEffect(() => { refresh() }, [])
-  useEffect(() => { const t = setInterval(refresh, 10000); return () => clearInterval(t) }, [refresh])
+  useEffect(() => {
+    // Only poll when backend is reachable — stop hammering when it's down
+    if (backendOk === false) return
+    const t = setInterval(refresh, 10000)
+    return () => clearInterval(t)
+  }, [refresh, backendOk])
 
   useEffect(() => {
     const connect = () => {
@@ -60,7 +71,7 @@ export default function App() {
   }, [WS])
 
   const resolveAlert = async (id) => {
-    await fetch(`${API}/alerts/${id}/resolve`, { method:'POST' })
+    await apiFetch(`${API}/alerts/${id}/resolve`, { method:'POST' })
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, resolved:true } : a))
   }
 
@@ -78,7 +89,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-base">
 
-      <TopBar threat={threat} liveAlerts={liveAlerts} apiUrl={API} onOpenSettings={() => setShowSettings(true)} />
+      <TopBar threat={threat} liveAlerts={liveAlerts} apiUrl={API} backendOk={backendOk} onOpenSettings={() => setShowSettings(true)} onRetry={refresh} />
 
       <main className="max-w-screen-2xl mx-auto px-4 py-5">
         <StatCards summary={summary} />
@@ -102,7 +113,7 @@ export default function App() {
           </div>
 
           <div className="p-4">
-            {tab===0 && <AlertFeed alerts={filtered} filter={filter} onFilter={setFilter} onResolve={resolveAlert} onClear={async () => { await fetch(`${API}/alerts/clear`,{method:'DELETE'}); setAlerts([]); refresh() }} />}
+            {tab===0 && <AlertFeed alerts={filtered} filter={filter} onFilter={setFilter} onResolve={resolveAlert} onClear={async () => { await apiFetch(`${API}/alerts/clear`,{method:'DELETE'}); setAlerts([]); refresh() }} />}
             {tab===1 && <EventStream events={events} />}
             {tab===2 && <GcpUpload apiUrl={API} onDone={refresh} />}
           </div>
