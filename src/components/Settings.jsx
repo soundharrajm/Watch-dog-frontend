@@ -49,13 +49,17 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
   const authenticate = async () => {
     setAuthErr('')
     try {
-      // Encrypt with RSA-OAEP + AES-256-GCM — no key stored in frontend
+      // Clear cached public key to get fresh one from backend
+      const { encryptPayload, clearKeyCache } = await import('../crypto.js')
+      clearKeyCache()
+
       const encrypted = await encryptPayload({ secret }, API)
       const r = await apiFetch(`${API}/config/auth`, {
         method :'POST',
         headers:{'Content-Type':'application/json'},
         body   : JSON.stringify(encrypted)
       })
+      if (r.status === 401) { setAuthErr('Key mismatch — try again'); return }
       if (!r.ok) { setAuthErr('Invalid secret'); return }
       const d = await r.json()
       const tok = d.session_token  // use session token, not raw secret
