@@ -154,6 +154,7 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
                     <p className="text-[10px] text-slate-600 mt-2">Default: <code className="text-violet-400">watchdog-admin</code></p>
                   </>
                 ) : (
+                  <>
                   <div className="px-3 py-2.5 rounded-lg border border-emerald-500/25 bg-emerald-500/5 text-sm text-emerald-400">
                     ✓ Unlocked — configure clouds and rules in other tabs
                   </div>
@@ -179,6 +180,7 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
                     {secretErr && <p className="text-xs text-red-400 mt-1.5">{secretErr}</p>}
                     <p className="text-[10px] text-slate-600 mt-1.5">Only the current admin can change this</p>
                   </div>
+                  </>
                 )}
               </div>
             </>
