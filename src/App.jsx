@@ -8,8 +8,7 @@ import TopBar       from './components/TopBar.jsx'
 import Settings     from './components/Settings.jsx'
 
 const SAVED_URL = localStorage.getItem('wd_backend_url')
-const API_INIT  = SAVED_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000'
-const WS  = API.replace(/^http/, 'ws') + '/ws/alerts'
+const API_INIT  = SAVED_URL || import.meta.env.VITE_API_URL || 'http://localhost:8001'
 
 export default function App() {
   const [apiUrl,     setApiUrl]     = useState(API_INIT)
