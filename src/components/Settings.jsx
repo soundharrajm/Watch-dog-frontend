@@ -40,6 +40,8 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
   const [saving,     setSaving]     = useState({})
   const [saved,      setSaved]      = useState({})
   const [newAgent,   setNewAgent]   = useState('')
+  const [newSecret,  setNewSecret]  = useState('')
+  const [secretErr,  setSecretErr]  = useState('')
   const API = backendUrl
 
   const authenticate = async () => {
@@ -72,6 +74,23 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
     markSaving('det')
     const r = await apiFetch(`${API}/config/detection?secret=${secret}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg.detection) })
     r.ok ? markSaved('det') : markSaving('det', false)
+  }
+
+  const changeSecret = async () => {
+    setSecretErr('')
+    markSaving('secret')
+    try {
+      const r = await apiFetch(`${API}/config/change-secret`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_secret: secret, new_secret: newSecret }),
+      })
+      if (!r.ok) { setSecretErr('Failed — check current secret'); markSaving('secret', false); return }
+      localStorage.setItem('wd_secret', newSecret)
+      setSecret(newSecret)
+      setNewSecret('')
+      markSaved('secret')
+    } catch { setSecretErr('Cannot reach backend'); markSaving('secret', false) }
   }
 
   const markSaving = (k, v=true) => setSaving(p => ({...p,[k]:v}))
@@ -137,6 +156,28 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
                 ) : (
                   <div className="px-3 py-2.5 rounded-lg border border-emerald-500/25 bg-emerald-500/5 text-sm text-emerald-400">
                     ✓ Unlocked — configure clouds and rules in other tabs
+                  </div>
+
+                  {/* Change secret — only visible after unlock */}
+                  <div className="mt-4 pt-4 border-t border-white/[0.06]">
+                    <p className={label}>Change admin secret</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        value={newSecret}
+                        onChange={e => setNewSecret(e.target.value)}
+                        placeholder="New secret"
+                        className="inp flex-1 mb-0"
+                      />
+                      <button
+                        onClick={changeSecret}
+                        disabled={!newSecret.trim() || saving.secret}
+                        className="btn bg-violet-600 hover:bg-violet-500 text-white border-none font-bold px-4 disabled:opacity-40">
+                        {saving.secret ? '⏳' : saved.secret ? '✓ Changed' : 'Update'}
+                      </button>
+                    </div>
+                    {secretErr && <p className="text-xs text-red-400 mt-1.5">{secretErr}</p>}
+                    <p className="text-[10px] text-slate-600 mt-1.5">Only the current admin can change this</p>
                   </div>
                 )}
               </div>
