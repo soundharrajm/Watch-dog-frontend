@@ -18,7 +18,12 @@ let _cachedPublicKey = null   // cache per session
  */
 async function getPublicKey(apiUrl) {
   if (_cachedPublicKey) return _cachedPublicKey
-  const r    = await fetch(`${apiUrl}/config/public-key`)
+  const r    = await fetch(`${apiUrl}/config/public-key`, {
+    headers: {
+      'bypass-tunnel-reminder'    : 'true',
+      'ngrok-skip-browser-warning': 'true',
+    }
+  })
   const data = await r.json()
   const pem  = data.public_key
 
