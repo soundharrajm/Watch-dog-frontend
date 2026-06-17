@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { apiFetch } from '../api.js'
+import { encryptPayload } from '../crypto.js'
 
 const inp  = "inp mb-3"
 const label = "block text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1.5"
@@ -30,7 +31,8 @@ const TABS = ['Backend','Clouds','Detection']
 
 export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
   const [tab,        setTab]        = useState(0)
-  const [secret,     setSecret]     = useState(localStorage.getItem('wd_secret') || '')
+  const [secret,     setSecret]     = useState('')   // only used during auth, never sent after
+  const [sessionTok, setSessionTok] = useState('')   // in-memory session token, never persisted
   const [authed,     setAuthed]     = useState(false)
   const [authErr,    setAuthErr]    = useState('')
   const [cfg,        setCfg]        = useState(null)
@@ -47,11 +49,20 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
   const authenticate = async () => {
     setAuthErr('')
     try {
-      const r = await apiFetch(`${API}/config/auth`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ secret }) })
+      // Encrypt payload — secret never travels in plaintext
+      const encrypted = await encryptPayload({ secret })
+      const r = await apiFetch(`${API}/config/auth`, {
+        method :'POST',
+        headers:{'Content-Type':'application/json'},
+        body   : JSON.stringify(encrypted)
+      })
       if (!r.ok) { setAuthErr('Invalid secret'); return }
-      localStorage.setItem('wd_secret', secret)
+      const d = await r.json()
+      const tok = d.session_token  // use session token, not raw secret
+      setSessionTok(tok)
       setAuthed(true)
-      const c = await apiFetch(`${API}/config/?secret=${secret}`).then(r => r.json())
+      setSecret('')  // clear raw secret from memory immediately
+      const c = await apiFetch(`${API}/config/?secret=${tok}`).then(r => r.json())
       setCfg(c)
     } catch { setAuthErr('Cannot reach backend') }
   }
@@ -66,13 +77,13 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
 
   const saveCloud = async (p) => {
     markSaving(p)
-    const r = await apiFetch(`${API}/config/cloud?secret=${secret}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ provider:p, config: cfg.clouds[p] }) })
+    const r = await apiFetch(`${API}/config/cloud?secret=${sessionTok}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ provider:p, config: cfg.clouds[p] }) })
     r.ok ? markSaved(p) : markSaving(p, false)
   }
 
   const saveDet = async () => {
     markSaving('det')
-    const r = await apiFetch(`${API}/config/detection?secret=${secret}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg.detection) })
+    const r = await apiFetch(`${API}/config/detection?secret=${sessionTok}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(cfg.detection) })
     r.ok ? markSaved('det') : markSaving('det', false)
   }
 
@@ -83,11 +94,11 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
       const r = await apiFetch(`${API}/config/change-secret`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_secret: secret, new_secret: newSecret }),
+        body: JSON.stringify({ current_secret: sessionTok, new_secret: newSecret }),
       })
       if (!r.ok) { setSecretErr('Failed — check current secret'); markSaving('secret', false); return }
-      localStorage.setItem('wd_secret', newSecret)
-      setSecret(newSecret)
+
+
       setNewSecret('')
       markSaved('secret')
     } catch { setSecretErr('Cannot reach backend'); markSaving('secret', false) }
