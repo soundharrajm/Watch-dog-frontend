@@ -1,24 +1,9 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 @layer base {
-  html, body, #root { @apply bg-base min-h-screen; }
+  html, body, #root { @apply bg-[#0a0a14] min-h-screen; }
   body { @apply text-slate-100 font-sans antialiased; }
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-thumb { @apply bg-violet-900 rounded-full; }
 }
-
-@layer utilities {
-  .card { @apply bg-white/[0.04] border border-white/[0.08] rounded-xl; }
-  .card-hover { @apply hover:bg-white/[0.06] hover:border-white/[0.12] transition-all duration-150; }
-  .badge { @apply inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md; }
-  .btn { @apply inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed; }
-  .inp { @apply w-full bg-white/[0.05] border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-slate-100 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 placeholder:text-slate-600 font-mono transition-all; }
-  .section { @apply card p-4 mb-3; }
-}
-
-@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.3 } }
-@keyframes slideIn { from { transform:translateY(-8px); opacity:0 } to { transform:translateY(0); opacity:1 } }
-.animate-pulse-dot { animation: pulse 1.5s infinite; }
-.animate-slide-in  { animation: slideIn .2s ease; }
