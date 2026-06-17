@@ -203,7 +203,9 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
                 <input value={cfg.clouds.gcp.log_filter} onChange={e => setCloud('gcp','log_filter',e.target.value)} className={inp} />
                 <label className={label}>Pull interval (sec)</label>
                 <input type="number" value={cfg.clouds.gcp.pull_interval_sec} onChange={e => setCloud('gcp','pull_interval_sec',+e.target.value)} className="inp w-28" />
-                <p className="text-[10px] text-slate-600 mt-2 mb-3">pip install google-cloud-logging</p>
+                <label className={label} style={{marginTop:'12px'}}>Pub/Sub subscription (for live pull)</label>
+                <input value={cfg.clouds.gcp.pubsub_subscription||''} onChange={e => setCloud('gcp','pubsub_subscription',e.target.value)} placeholder="watchdog-sub" className={inp} />
+                <p className="text-[10px] text-slate-600 mb-3">pip install google-cloud-logging google-cloud-pubsub</p>
               </>}
 
               {p === 'aws' && <>
@@ -215,6 +217,8 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
                 <input value={cfg.clouds.aws.region} onChange={e => setCloud('aws','region',e.target.value)} placeholder="us-east-1" className={inp} />
                 <label className={label}>CloudWatch Log Group</label>
                 <input value={cfg.clouds.aws.log_group} onChange={e => setCloud('aws','log_group',e.target.value)} placeholder="/aws/alb/access-logs" className={inp} />
+                <label className={label}>Kinesis Stream (for live)</label>
+                <input value={cfg.clouds.aws.kinesis_stream||''} onChange={e => setCloud('aws','kinesis_stream',e.target.value)} placeholder="watchdog-logs" className={inp} />
                 <p className="text-[10px] text-slate-600 mb-3">pip install boto3</p>
               </>}
 
@@ -227,7 +231,13 @@ export default function Settings({ apiUrl: initUrl, onClose, onUrlSaved }) {
                 <input type="password" value={cfg.clouds.azure.client_secret} onChange={e => setCloud('azure','client_secret',e.target.value)} className={inp} />
                 <label className={label}>Workspace ID</label>
                 <input value={cfg.clouds.azure.workspace_id} onChange={e => setCloud('azure','workspace_id',e.target.value)} className={inp} />
-                <p className="text-[10px] text-slate-600 mb-3">pip install azure-monitor-query azure-identity</p>
+                <label className={label}>Event Hub Connection String (for live)</label>
+                <input type="password" value={cfg.clouds.azure.eventhub_connection_string||''} onChange={e => setCloud('azure','eventhub_connection_string',e.target.value)} placeholder="Endpoint=sb://..." className={inp} />
+                <label className={label}>Event Hub Namespace</label>
+                <input value={cfg.clouds.azure.eventhub_namespace||''} onChange={e => setCloud('azure','eventhub_namespace',e.target.value)} placeholder="watchdog-ns" className={inp} />
+                <label className={label}>Event Hub Name</label>
+                <input value={cfg.clouds.azure.eventhub_name||''} onChange={e => setCloud('azure','eventhub_name',e.target.value)} placeholder="watchdog-logs" className={inp} />
+                <p className="text-[10px] text-slate-600 mb-3">pip install azure-monitor-query azure-identity azure-eventhub</p>
               </>}
 
               {p === 'cdn' && <>
