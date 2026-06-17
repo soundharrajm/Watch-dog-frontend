@@ -4,6 +4,7 @@ import AlertFeed   from './components/AlertFeed.jsx'
 import EventStream from './components/EventStream.jsx'
 import GcpUpload   from './components/GcpUpload.jsx'
 import SimBar      from './components/SimBar.jsx'
+import LiveStatus  from './components/LiveStatus.jsx'
 import StatCards   from './components/StatCards.jsx'
 import TopBar      from './components/TopBar.jsx'
 import Settings    from './components/Settings.jsx'
@@ -16,6 +17,7 @@ const TABS = ['Alerts','Stream events','Log upload']
 export default function App() {
   const [apiUrl,       setApiUrl]       = useState(API_INIT)
   const [showSettings, setShowSettings] = useState(false)
+  const [mode,         setMode]         = useState('simulate') // 'simulate' | 'live'
   const [summary,      setSummary]      = useState(null)
   const [alerts,       setAlerts]       = useState([])
   const [events,       setEvents]       = useState([])
@@ -94,9 +96,34 @@ export default function App() {
       <main className="max-w-screen-2xl mx-auto px-4 py-5">
         <StatCards summary={summary} />
 
-        {/* Sim bar */}
+        {/* Mode toggle + Sim bar */}
         <div className="card p-3 mb-4">
-          <SimBar apiUrl={API} onDone={refresh} />
+          <div className="flex items-center gap-3 mb-3 pb-3 border-b border-white/[0.06]">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Data source:</span>
+            <div className="flex rounded-lg border border-white/[0.08] overflow-hidden">
+              <button onClick={() => setMode('simulate')}
+                className={`px-4 py-1.5 text-xs font-semibold transition-all ${mode==='simulate' ? 'bg-violet-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
+                🧪 Simulate
+              </button>
+              <button onClick={() => setMode('live')}
+                className={`px-4 py-1.5 text-xs font-semibold transition-all ${mode==='live' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}>
+                📡 Live data
+              </button>
+            </div>
+            {mode === 'live' && (
+              <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-dot" />
+                Connected to real cloud logs — simulation disabled
+              </span>
+            )}
+            {mode === 'simulate' && (
+              <span className="text-xs text-slate-600">Using simulated data — switch to Live when cloud credentials are configured</span>
+            )}
+          </div>
+          {mode === 'simulate'
+            ? <SimBar apiUrl={API} onDone={refresh} />
+            : <LiveStatus apiUrl={API} />
+          }
         </div>
 
         {/* Main panel */}
